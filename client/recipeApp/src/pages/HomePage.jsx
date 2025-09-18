@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import Card from "../components/Card";
 import { serverSide } from "../helpers/httpClient";
@@ -10,9 +11,14 @@ import {
   clearAIResult,
 } from '../store/slices/recipesSlice';
 
-
 function HomePage() {
   const dispatch = useDispatch();
+  // Reset AI result when leaving HomePage (unmount)
+  useEffect(() => {
+    return () => {
+      dispatch(clearAIResult());
+    };
+  }, [dispatch]);
   const {
     list: recipes = [],
     page = 1,
@@ -24,6 +30,8 @@ function HomePage() {
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const inputRef = useRef();
   // AI
   const [aiInput, setAiInput] = useState("");
@@ -38,11 +46,17 @@ function HomePage() {
 
   // Fetch recipes when page or debouncedSearch changes
   useEffect(() => {
-    dispatch(fetchRecipes({ page, search: debouncedSearch }));
+    let cancelled = false;
+    setIsPageLoading(true);
+    dispatch(fetchRecipes({ page, search: debouncedSearch }))
+      .finally(() => {
+        if (!cancelled) setIsPageLoading(false);
+      });
     document.body.style.background = 'linear-gradient(135deg, #f8ffec 60%, #ffe5b4 100%)';
     document.body.style.minHeight = '100vh';
     document.body.style.margin = '0';
     return () => {
+      cancelled = true;
       document.body.style.background = '';
       document.body.style.minHeight = '';
       document.body.style.margin = '';
@@ -50,9 +64,13 @@ function HomePage() {
     // eslint-disable-next-line
   }, [debouncedSearch, page]);
 
-  // Reset page to 1 when debouncedSearch changes, but only if not already on page 1
+  // Reset page to 1 only after search fetch completes, to avoid double fetch and glitch
   useEffect(() => {
-    if (page !== 1) dispatch(setRecipesPage(1));
+    if (debouncedSearch && page !== 1) {
+      setIsPageLoading(true);
+      dispatch(setRecipesPage(1));
+      // fetchRecipes will be triggered by [debouncedSearch, page] effect
+    }
     // eslint-disable-next-line
   }, [debouncedSearch]);
 
@@ -87,24 +105,25 @@ function HomePage() {
             value={aiInput}
             onChange={e => setAiInput(e.target.value)}
             style={{maxWidth:340, fontSize:'1rem'}}
-            disabled={loading}
+            disabled={aiLoading}
             onKeyDown={e => { if (e.key === 'Enter') {
-              // fetch all recipes then ask AI
               if (!aiInput.trim()) return;
+              setAiLoading(true);
               dispatch(fetchAllRecipesForAI()).then(action => {
                 const ctx = action.payload && action.payload.rows ? action.payload.rows : action.payload;
-                dispatch(askAI({ question: aiInput, recipes: ctx }));
-              }).catch(() => {});
+                dispatch(askAI({ question: aiInput, recipes: ctx })).finally(() => setAiLoading(false));
+              }).catch(() => setAiLoading(false));
             } }}
           />
-          <button className="btn btn-warning" style={{fontWeight:600, minWidth:90}} disabled={loading || !aiInput.trim()} onClick={() => {
+          <button className="btn btn-warning" style={{fontWeight:600, minWidth:90}} disabled={aiLoading || !aiInput.trim()} onClick={() => {
             if (!aiInput.trim()) return;
+            setAiLoading(true);
             dispatch(fetchAllRecipesForAI()).then(action => {
               const ctx = action.payload && action.payload.rows ? action.payload.rows : action.payload;
-              dispatch(askAI({ question: aiInput, recipes: ctx }));
-            }).catch(() => {});
+              dispatch(askAI({ question: aiInput, recipes: ctx })).finally(() => setAiLoading(false));
+            }).catch(() => setAiLoading(false));
           }}>
-            {loading ? 'Loading...' : 'Ask me!'}
+            {aiLoading ? 'Loading...' : 'Ask me!'}
           </button>
         </div>
         {aiResult && (
@@ -128,28 +147,42 @@ function HomePage() {
         <div
           className="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 g-1 justify-content-center"
         >
-          {recipes.map((recipe) => (
-            <div className="col d-flex justify-content-center" key={recipe.id} style={{padding: 8, minWidth: 0}}>
-              <Card
-                recipe={recipe}
-                onDelete={async (id) => {
-                  if (!window.confirm('Hapus resep ini?')) return;
-                  try {
-                    await serverSide.delete(`/pub/recipes/${id}`); // sesuaikan endpoint jika perlu
-                    dispatch(fetchRecipes({ page, search: debouncedSearch }));
-                  } catch (err) {
-                    alert(err.response?.data?.message || 'Gagal menghapus');
-                  }
-                }}
-              />
+          {isPageLoading ? (
+            <div className="text-center w-100" style={{padding: 40}}>
+              <span className="spinner-border text-success" role="status" aria-hidden="true"></span>
+              <span className="ms-2">Loading recipes...</span>
             </div>
-          ))}
+          ) : recipes.length === 0 ? (
+            <div className="text-center w-100" style={{padding: 40}}>
+              <span>No recipes found.</span>
+            </div>
+          ) : (
+            recipes.map((recipe) => (
+              <div className="col d-flex justify-content-center" key={recipe.id} style={{padding: 8, minWidth: 0}}>
+                <Card
+                  recipe={recipe}
+                  onDelete={async (id) => {
+                    if (!window.confirm('Hapus resep ini?')) return;
+                    try {
+                      await serverSide.delete(`/pub/recipes/${id}`); // sesuaikan endpoint jika perlu
+                      setIsPageLoading(true);
+                      await dispatch(fetchRecipes({ page, search: debouncedSearch }));
+                    } catch (err) {
+                      alert(err.response?.data?.message || 'Gagal menghapus');
+                    } finally {
+                      setIsPageLoading(false);
+                    }
+                  }}
+                />
+              </div>
+            ))
+          )}
         </div>
         {/* Pagination */}
         <div className="d-flex justify-content-center align-items-center mt-4" style={{gap:8}}>
-          <button className="btn btn-outline-success btn-sm" disabled={page <= 1} onClick={()=>dispatch(setRecipesPage(page-1))}>&laquo; Prev</button>
+          <button className="btn btn-outline-success btn-sm" disabled={page <= 1 || isPageLoading} onClick={()=>dispatch(setRecipesPage(page-1))}>&laquo; Prev</button>
           <span style={{fontWeight:600, minWidth:40, textAlign:'center'}}>Page {page}</span>
-          <button className="btn btn-outline-success btn-sm" disabled={recipes.length < 10} onClick={()=>dispatch(setRecipesPage(page+1))}>Next &raquo;</button>
+          <button className="btn btn-outline-success btn-sm" disabled={recipes.length < 10 || isPageLoading} onClick={()=>dispatch(setRecipesPage(page+1))}>Next &raquo;</button>
         </div>
       </div>
     </div>
