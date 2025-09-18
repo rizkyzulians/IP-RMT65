@@ -83,7 +83,7 @@ function HomePage() {
           <input
             type="text"
             className="form-control"
-            placeholder="Tanyakan ke AI (misal: rekomendasi menu sehat)"
+            placeholder="Let me recommend you!"
             value={aiInput}
             onChange={e => setAiInput(e.target.value)}
             style={{maxWidth:340, fontSize:'1rem'}}
@@ -104,7 +104,7 @@ function HomePage() {
               dispatch(askAI({ question: aiInput, recipes: ctx }));
             }).catch(() => {});
           }}>
-            {loading ? 'Loading...' : 'Ask AI'}
+            {loading ? 'Loading...' : 'Ask me!'}
           </button>
         </div>
         {aiResult && (
