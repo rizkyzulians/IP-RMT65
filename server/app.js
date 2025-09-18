@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const cors = require('cors')
 const express = require('express')
 const app = express()
 const { authentication } = require('./middlewares/authentication')
@@ -8,6 +9,7 @@ const recipeController = require('./controllers/recipeController')
 const myListController = require('./controllers/myListController');
 const AIController = require('./controllers/aiController');
 
+app.use(cors())
 
 app.use(express.urlencoded({ extended: false}));
 app.use(express.json());
