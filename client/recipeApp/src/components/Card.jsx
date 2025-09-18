@@ -2,13 +2,17 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { serverSide } from "../helpers/httpClient";
 
-function Card({ recipe, isMyList, onDelete, onNoteUpdate, note: initialNote, noteLoading }) {
+function Card({ recipe, isMyList, onDelete, onNoteUpdate, note: initialNote, noteLoading, externalId }) {
   const navigate = useNavigate();
   const [addMsg, setAddMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [note, setNote] = useState(initialNote || "");
+  const [editValue, setEditValue] = useState(initialNote || "");
   const [editMode, setEditMode] = useState(false);
   const [noteMsg, setNoteMsg] = useState("");
+
+  React.useEffect(() => {
+    setEditValue(initialNote || "");
+  }, [initialNote]);
 
   const handleAddMyList = async (e) => {
     e.stopPropagation();
@@ -140,12 +144,12 @@ function Card({ recipe, isMyList, onDelete, onNoteUpdate, note: initialNote, not
         )}
         {isMyList && (
           <>
-            <button
+              <button
               className="btn btn-danger btn-sm mt-2 align-self-end"
               style={{borderRadius: 20, fontWeight: 600, minWidth: 90, fontSize: '0.95rem'}}
               onClick={e => {
                 e.stopPropagation();
-                if (onDelete) onDelete(recipe.id);
+                if (onDelete) onDelete(externalId ?? recipe.id);
               }}
             >
               Delete
@@ -153,19 +157,19 @@ function Card({ recipe, isMyList, onDelete, onNoteUpdate, note: initialNote, not
             <div className="mt-2" style={{width:'100%'}}>
               <label style={{fontSize:'0.93rem', color:'#388e3c', fontWeight:600}}>Note:</label>
               {editMode ? (
-                <form
+                    <form
                   onClick={e => e.stopPropagation()}
                   onSubmit={e => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (onNoteUpdate) onNoteUpdate(recipe.id, note, setNoteMsg, setEditMode);
+                    if (onNoteUpdate) onNoteUpdate(externalId ?? recipe.id, editValue, setNoteMsg, setEditMode);
                   }}
                   style={{display:'flex', flexDirection:'column', gap:4}}
                 >
                   <textarea
                     className="form-control"
-                    value={note}
-                    onChange={e => setNote(e.target.value)}
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
                     rows={2}
                     style={{fontSize:'0.95rem', resize:'vertical'}}
                     disabled={noteLoading}
@@ -175,15 +179,15 @@ function Card({ recipe, isMyList, onDelete, onNoteUpdate, note: initialNote, not
                     <button type="submit" className="btn btn-success btn-sm" disabled={noteLoading} style={{fontWeight:600, minWidth:60}} onClick={e => e.stopPropagation()}>
                       {noteLoading ? 'Saving...' : 'Save'}
                     </button>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={e => {e.stopPropagation(); setEditMode(false); setNote(initialNote||"")}} disabled={noteLoading}>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={e => {e.stopPropagation(); setEditMode(false); setEditValue(initialNote||"")}} disabled={noteLoading}>
                       Cancel
                     </button>
                   </div>
                 </form>
               ) : (
                 <div style={{display:'flex', alignItems:'center', gap:8}} onClick={e => e.stopPropagation()}>
-                  <span style={{fontSize:'0.97rem', color:'#555', flex:1, minHeight:24}}>{note || <i>No note</i>}</span>
-                  <button className="btn btn-outline-success btn-sm" style={{fontWeight:600, minWidth:60}} onClick={e => {e.stopPropagation(); setEditMode(true);}}>
+                  <span style={{fontSize:'0.97rem', color:'#555', flex:1, minHeight:24}}>{initialNote || <i>No note</i>}</span>
+                    <button className="btn btn-outline-success btn-sm" style={{fontWeight:600, minWidth:60}} onClick={e => {e.stopPropagation(); setEditMode(true);}}>
                     Edit
                   </button>
                 </div>

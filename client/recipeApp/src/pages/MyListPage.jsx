@@ -1,57 +1,17 @@
 import React, { useEffect, useState } from "react";
 import Card from "../components/Card";
-import { serverSide } from "../helpers/httpClient";
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchMyList, removeFromMyList, updateNote } from '../store/slices/myListSlice';
 
 
 function MyListPage() {
-  const [myList, setMyList] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(null); // RecipeId yang sedang dihapus
-  const [noteLoading, setNoteLoading] = useState(null); // RecipeId yang sedang update note
-  const handleNoteUpdate = async (RecipeId, note, setMsg, setEditMode) => {
-    setNoteLoading(RecipeId);
-    try {
-      const token = localStorage.getItem("access_token");
-  await serverSide.patch(`/mylist/${RecipeId}`, { note }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMyList(prev => prev.map(item => {
-        if ((item.RecipeId || item.recipeId || item.id) === RecipeId) {
-          return { ...item, note };
-        }
-        return item;
-      }));
-      setMsg('Note updated!');
-      setTimeout(() => setMsg(''), 1200);
-      setEditMode(false);
-    } catch (err) {
-      setMsg(err.response?.data?.message || 'Gagal update note');
-    } finally {
-      setNoteLoading(null);
-    }
-  };
+  const dispatch = useDispatch();
+  const { items: myList = [], loading, error } = useSelector(state => state.myList || {});
+  const [deleteLoading, setDeleteLoading] = useState(null);
+  const [noteLoading, setNoteLoading] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (!token) {
-      setError("You must be logged in to view your list.");
-      setLoading(false);
-      return;
-    }
-    serverSide.get("/mylist", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then((res) => {
-        let list = res.data.myList || res.data;
-        if (!Array.isArray(list)) list = [];
-        setMyList(list);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.response?.data?.message || err.message);
-        setLoading(false);
-      });
+    dispatch(fetchMyList()).catch(() => {});
   }, []);
 
   const handleDelete = async (RecipeId) => {
@@ -59,15 +19,27 @@ function MyListPage() {
     if (!konfirmasi) return;
     setDeleteLoading(RecipeId);
     try {
-      const token = localStorage.getItem("access_token");
-      await serverSide.delete(`/mylist/${RecipeId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMyList((prev) => prev.filter(item => (item.RecipeId || item.recipeId || item.id) !== RecipeId));
+      await dispatch(removeFromMyList(RecipeId)).unwrap();
     } catch (err) {
-      alert(err.response?.data?.message || 'Gagal menghapus');
+      const msg = typeof err === 'string' ? err : err?.message || JSON.stringify(err) || 'Gagal menghapus';
+      alert(msg);
     } finally {
       setDeleteLoading(null);
+    }
+  };
+
+  const handleNoteUpdate = async (RecipeId, note, setMsg, setEditMode) => {
+    setNoteLoading(RecipeId);
+    try {
+      const res = await dispatch(updateNote({ recipeId: RecipeId, note })).unwrap();
+      setMsg('Note updated!');
+      setTimeout(() => setMsg(''), 1200);
+      setEditMode(false);
+    } catch (err) {
+      const msg = typeof err === 'string' ? err : err?.message || JSON.stringify(err) || 'Gagal update note';
+      setMsg(msg);
+    } finally {
+      setNoteLoading(null);
     }
   };
 
@@ -98,7 +70,6 @@ function MyListPage() {
         }}
       >
         <div style={{display:'flex', justifyContent:'center', alignItems:'center', width:'100%', marginBottom: '2rem'}}>
-          <h2 style={{fontWeight:'bold', textAlign:'center', margin:0}}>My List</h2>
         </div>
         {myList.length === 0 ? (
           <p>No recipes saved yet.</p>
@@ -114,6 +85,7 @@ function MyListPage() {
                   <Card
                     recipe={recipeObj}
                     isMyList
+                    externalId={recipeId}
                     onDelete={(id) => handleDelete(recipeId)}
                     note={item.note}
                     onNoteUpdate={handleNoteUpdate}
