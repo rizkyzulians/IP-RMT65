@@ -1,5 +1,5 @@
 import axios from 'axios';
 
 export const serverSide = axios.create({
-    baseURL: "http://localhost:3000",
+    baseURL: "https://la-cusina-app.mrizky.web.id",
 });
