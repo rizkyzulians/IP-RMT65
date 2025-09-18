@@ -11,16 +11,20 @@ async function askGemini(question) {
 			{
 				contents: [
 					{ parts: [{ text: question }] }
-				]
+				],
+				generationConfig: {
+					temperature: 0.7,
+					maxOutputTokens: 256
+				}
 			},
 			{
 				headers: { 'Content-Type': 'application/json' }
 			}
 		);
-		// Ambil hasil dari response Gemini
 		const result = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Tidak ada rekomendasi.';
 		return result;
 	} catch (err) {
+		console.error('Gemini API error:', err.response?.data || err.message);
 		throw new Error(err.response?.data?.error?.message || err.message);
 	}
 }

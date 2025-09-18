@@ -18,6 +18,8 @@ app.use(express.json());
 app.post('/ai/rekomendasi', AIController.rekomendasiResep);
 
 app.get('/pub/recipes', recipeController.getAllRecipePub);
+// Endpoint untuk mengambil semua resep (khusus untuk AI)
+app.get('/pub/recipes/all', recipeController.getAllRecipesRaw);
 app.get('/pub/recipes/:id', recipeController.detailRecipePubbyId)
 
 app.post('/register', userController.register);

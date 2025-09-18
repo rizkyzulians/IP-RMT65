@@ -2,6 +2,17 @@ const { Recipe, MyList, User } = require("../models");
 const { Op } = require("sequelize");
 
 module.exports = class recipeController {
+  // [GET] /pub/recipes/all (for AI context)
+  static async getAllRecipesRaw(req, res, next) {
+    try {
+      const recipes = await Recipe.findAll({
+        attributes: ['id', 'title', 'ingredients']
+      });
+      res.status(200).json(recipes);
+    } catch (err) {
+      res.status(500).json({ message: 'Internal Server Error' });
+    }
+  }
   // [GET] /pub/recipes
   static async getAllRecipePub(req, res, next) {
     try {
