@@ -24,6 +24,7 @@ app.get('/pub/recipes/:id', recipeController.detailRecipePubbyId)
 
 app.post('/register', userController.register);
 app.post('/login', userController.login);
+app.post('/login/google', userController.googleLogin);
 
 app.use(authentication);
 

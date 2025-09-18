@@ -7,8 +7,9 @@ function HomePage() {
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true); // hanya true saat initial load
   const [error, setError] = useState(null);
-  const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Remove unused search state
   const [page, setPage] = useState(1);
   const [totalPage, setTotalPage] = useState(1);
   const inputRef = useRef();
@@ -36,22 +37,28 @@ function HomePage() {
       .finally(() => setAiLoading(false));
   };
 
-  // Initial load & debounce search
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  // Fetch recipes when page or debouncedSearch changes
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     let url = `/pub/recipes?page=${page}`;
-    if (searchInput) {
-      url += `&search=${encodeURIComponent(searchInput)}`;
+    if (debouncedSearch) {
+      url += `&search=${encodeURIComponent(debouncedSearch)}`;
     }
     serverSide.get(url)
       .then((res) => {
-        // Jika backend mengembalikan array saja:
         let data = res.data.recipes || res.data;
         setRecipes(data);
-        // Cek totalPage dari header atau response jika ada, fallback 1
         if (Array.isArray(data) && data.length === 10) {
-          setTotalPage(page + 1); // optimis, backend sebaiknya kirim totalPage
+          setTotalPage(page + 1);
         } else if (Array.isArray(data) && data.length < 10) {
           setTotalPage(page);
         }
@@ -61,7 +68,6 @@ function HomePage() {
         if (!cancelled) setError(err.message);
         setLoading(false);
       });
-    // Set background fullscreen foodies theme
     document.body.style.background = 'linear-gradient(135deg, #f8ffec 60%, #ffe5b4 100%)';
     document.body.style.minHeight = '100vh';
     document.body.style.margin = '0';
@@ -72,9 +78,15 @@ function HomePage() {
       document.body.style.margin = '';
     };
     // eslint-disable-next-line
-  }, [searchInput, page]);
+  }, [debouncedSearch, page]);
 
-  if (loading) return <p>Loading...</p>;
+  // Reset page to 1 when debouncedSearch changes, but only if not already on page 1
+  useEffect(() => {
+    if (page !== 1) setPage(1);
+    // eslint-disable-next-line
+  }, [debouncedSearch]);
+
+  // Hilangkan loading indicator
   if (error) return <p style={{color:'red'}}>Error: {error}</p>;
 
   return (

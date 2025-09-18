@@ -33,7 +33,7 @@ function Navbar() {
           </div>
         )}
         <Link to="/recipes" className="navbar-brand" style={{color:'#388e3c', fontWeight:700, fontSize:'1.5rem', letterSpacing:1, cursor:'pointer'}}>
-          FoodiesApp
+          La Cusina App
         </Link>
         <ul className="navbar-nav d-flex flex-row align-items-center" style={{marginLeft: 16}}>
           <li className="nav-item">
